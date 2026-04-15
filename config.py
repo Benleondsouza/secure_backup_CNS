@@ -1,0 +1,11 @@
+# Encryption settings
+KEY_LENGTH = 32  # AES-256
+NONCE_SIZE = 12
+
+# Argon2 settings
+ARGON_TIME_COST = 2
+ARGON_MEMORY_COST = 65536  # 64MB
+ARGON_PARALLELISM = 2
+
+# Hash type
+HASH_TYPE = "sha256"
