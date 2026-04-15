@@ -1,6 +1,7 @@
-import tarfile
 import os
+import tarfile
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.exceptions import InvalidTag
 from argon2.low_level import hash_secret_raw, Type
 
 def derive_key(password, salt):
@@ -23,21 +24,19 @@ def restore_backup(input_file, output_folder, password):
     encrypted = data[28:]
 
     key = derive_key(password, salt)
-
     aesgcm = AESGCM(key)
 
     try:
         decrypted = aesgcm.decrypt(nonce, encrypted, None)
-    except:
-        print("❌ Wrong password or corrupted file!")
-        return
+    except InvalidTag:
+        return False  # IMPORTANT FIX
 
-    temp_file = "temp_restore.tar"
-    with open(temp_file, "wb") as f:
+    temp = "temp_restore.tar"
+    with open(temp, "wb") as f:
         f.write(decrypted)
 
-    with tarfile.open(temp_file, "r") as tar:
+    with tarfile.open(temp, "r") as tar:
         tar.extractall(output_folder)
 
-    os.remove(temp_file)
-    print("✅ Restore completed successfully!")
+    os.remove(temp)
+    return True

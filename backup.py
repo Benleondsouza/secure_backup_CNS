@@ -1,11 +1,8 @@
 import os
 import tarfile
-import json
+import secrets
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from argon2.low_level import hash_secret_raw, Type
-import secrets
-
-from tracker import scan_directory
 
 def derive_key(password, salt):
     return hash_secret_raw(
@@ -18,28 +15,24 @@ def derive_key(password, salt):
         type=Type.ID
     )
 
-def create_backup(source_folder, output_file, password):
-    # Step 1: Compress
-    archive_name = "temp_backup.tar"
-    with tarfile.open(archive_name, "w") as tar:
-        tar.add(source_folder, arcname=os.path.basename(source_folder))
+def create_backup(input_path, output_file, password):
+    archive = "temp.tar"
 
-    # Step 2: Read compressed data
-    with open(archive_name, "rb") as f:
+    with tarfile.open(archive, "w") as tar:
+        tar.add(input_path, arcname=os.path.basename(input_path))
+
+    with open(archive, "rb") as f:
         data = f.read()
 
-    # Step 3: Key generation
     salt = secrets.token_bytes(16)
-    key = derive_key(password, salt)
     nonce = secrets.token_bytes(12)
 
-    # Step 4: Encrypt
+    key = derive_key(password, salt)
+
     aesgcm = AESGCM(key)
     encrypted = aesgcm.encrypt(nonce, data, None)
 
-    # Step 5: Save output
     with open(output_file, "wb") as f:
         f.write(salt + nonce + encrypted)
 
-    os.remove(archive_name)
-    print("✅ Backup created successfully!")
+    os.remove(archive)

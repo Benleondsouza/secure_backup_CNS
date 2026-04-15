@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backups</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h1>📂 Available Backups</h1>
+
+{% for file in files %}
+<div class="card">
+    <p>{{ file }}</p>
+
+    <form action="/restore/{{ file }}" method="POST">
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Restore</button>
+    </form>
+</div>
+{% endfor %}
+
+</body>
+</html>
