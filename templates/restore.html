@@ -1,15 +1,193 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Restore</title>
-</head>
-<body>
-    <h2>Restore Backup</h2>
+{% extends "base.html" %}
+{% block title %}Restore — VAULT{% endblock %}
 
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" required><br><br>
-        <input type="password" name="password" placeholder="Enter password" required><br><br>
-        <button type="submit">Restore</button>
-    </form>
-</body>
-</html>
+{% block extra_head %}
+<style>
+  .restore-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .restore-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .restore-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .restore-row:hover { border-color: var(--accent); }
+  .restore-row.selected {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+  .rr-ver {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    width: 40px;
+  }
+  .rr-name {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text);
+  }
+  .rr-time {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .restore-panel { position: sticky; top: 20px; }
+
+  .selected-info {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    margin-bottom: 18px;
+  }
+  .selected-info .si-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .selected-info .si-key { color: var(--muted); }
+  .selected-info .si-val { color: var(--text); }
+
+  .result-box {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    display: none;
+  }
+  .result-box.ok  { background: rgba(0,229,160,0.07); border: 1px solid rgba(0,229,160,0.25); color: var(--accent); }
+  .result-box.err { background: rgba(255,87,87,0.07); border: 1px solid rgba(255,87,87,0.25); color: var(--warn); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Restore</h1>
+  <p>SELECT A VERSION AND DECRYPT TO RESTORE</p>
+</div>
+
+<div class="restore-grid">
+  <div class="card">
+    <div class="card-label">Available Versions</div>
+    <div class="restore-list" id="restoreList">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+
+  <div class="restore-panel card">
+    <div class="card-label">Restore Selected</div>
+
+    <div class="selected-info" id="selInfo">
+      <div style="color:var(--muted);font-family:var(--mono);font-size:0.75rem;text-align:center;padding:8px 0;">
+        ← Select a version
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Decryption Password</label>
+      <input type="password" id="restorePass" placeholder="Enter password…">
+    </div>
+
+    <button class="btn btn-primary" onclick="doRestore()" style="width:100%">↺ &nbsp;Restore</button>
+    <div class="result-box" id="result"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selected = null;
+
+  function fmt(ts) {
+    const m = ts.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
+    return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}` : ts;
+  }
+  function fmtSize(b) {
+    if (b > 1048576) return (b/1048576).toFixed(2)+' MB';
+    if (b > 1024) return (b/1024).toFixed(1)+' KB';
+    return b+' B';
+  }
+
+  async function load() {
+    const res = await fetch('/api/versions');
+    const versions = await res.json();
+    const el = document.getElementById('restoreList');
+    if (!versions.length) {
+      el.innerHTML = '<div class="empty-state">No backups found.</div>';
+      return;
+    }
+    el.innerHTML = [...versions].reverse().map(v => `
+      <div class="restore-row" id="row-${v.version}" onclick="selectVersion(${JSON.stringify(JSON.stringify(v))})">
+        <span class="rr-ver">v${String(v.version).padStart(3,'0')}</span>
+        <span class="rr-name">${v.original_name}</span>
+        <span class="badge ${v.backup_type === 'full' ? 'badge-full' : 'badge-inc'}">${v.backup_type}</span>
+        <span class="rr-time">${fmt(v.timestamp)}</span>
+      </div>
+    `).join('');
+  }
+
+  function selectVersion(jsonStr) {
+    const v = JSON.parse(jsonStr);
+    selected = v;
+    document.querySelectorAll('.restore-row').forEach(r => r.classList.remove('selected'));
+    document.getElementById('row-'+v.version)?.classList.add('selected');
+    document.getElementById('selInfo').innerHTML = `
+      <div class="si-row"><span class="si-key">File</span><span class="si-val">${v.original_name}</span></div>
+      <div class="si-row"><span class="si-key">Version</span><span class="si-val">v${String(v.version).padStart(3,'0')}</span></div>
+      <div class="si-row"><span class="si-key">Type</span><span class="si-val">${v.backup_type}</span></div>
+      <div class="si-row"><span class="si-key">Size</span><span class="si-val">${fmtSize(v.size)}</span></div>
+      <div class="si-row"><span class="si-key">Date</span><span class="si-val">${fmt(v.timestamp)}</span></div>
+    `;
+    document.getElementById('result').style.display = 'none';
+  }
+
+  async function doRestore() {
+    if (!selected) { showToast('Please select a version.', 'error'); return; }
+    const password = document.getElementById('restorePass').value;
+    if (!password) { showToast('Enter the decryption password.', 'error'); return; }
+
+    const res = await fetch('/api/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: selected.folder, password })
+    });
+    const d = await res.json();
+    const box = document.getElementById('result');
+    box.style.display = 'block';
+    if (d.status === 'ok') {
+      box.className = 'result-box ok';
+      box.textContent = '✓ ' + d.message;
+      showToast(d.message, 'success');
+    } else {
+      box.className = 'result-box err';
+      box.textContent = '✗ ' + (d.error || 'Restore failed.');
+      showToast(d.error || 'Restore failed.', 'error');
+    }
+  }
+
+  load();
+</script>
+{% endblock %}

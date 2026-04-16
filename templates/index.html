@@ -1,17 +1,193 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Secure Backup</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Dashboard — VAULT{% endblock %}
 
-<h1>🔐 Secure Backup System</h1>
+{% block extra_head %}
+<style>
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+  .stat-card.purple::before { background: var(--accent2); }
+  .stat-card.red::before    { background: var(--warn); }
+  .stat-card.gray::before   { background: var(--muted); }
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin: 8px 0 4px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
 
-<div class="container">
-    <a href="/backup"><button>📤 Create Backup</button></a>
-    <a href="/backups"><button>📂 View Backups</button></a>
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  .version-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .version-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+  }
+  .version-row .v-num {
+    color: var(--accent);
+    font-weight: 700;
+    width: 36px;
+  }
+  .version-row .v-name { flex: 1; color: var(--text); }
+  .version-row .v-time { color: var(--muted); font-size: 0.68rem; }
+
+  .quick-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .quick-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.03); }
+  .quick-btn .q-icon { font-size: 1.3rem; width: 32px; text-align: center; }
+  .quick-btn .q-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); display: block; margin-top: 2px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p>SYSTEM OVERVIEW · VAULT SECURE BACKUP</p>
 </div>
 
-</body>
-</html>
+<div class="stats-grid" id="statsGrid">
+  <div class="stat-card">
+    <div class="stat-label">Total Versions</div>
+    <div class="stat-num" id="s-total">—</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Full Backups</div>
+    <div class="stat-num" id="s-full">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Incremental</div>
+    <div class="stat-num" id="s-inc">—</div>
+  </div>
+  <div class="stat-card gray">
+    <div class="stat-label">Data Tracked</div>
+    <div class="stat-num" id="s-size">—</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-label">Recent Versions</div>
+    <div class="version-list" id="versionList">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Quick Actions</div>
+    <div class="quick-actions">
+      <a href="/backup" class="quick-btn">
+        <span class="q-icon">⊕</span>
+        <div>
+          New Backup
+          <span class="q-sub">Encrypt &amp; store a file</span>
+        </div>
+      </a>
+      <a href="/versions" class="quick-btn">
+        <span class="q-icon">≡</span>
+        <div>
+          Browse Versions
+          <span class="q-sub">View all backup history</span>
+        </div>
+      </a>
+      <a href="/restore" class="quick-btn">
+        <span class="q-icon">↺</span>
+        <div>
+          Restore File
+          <span class="q-sub">Decrypt &amp; recover a backup</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function loadStats() {
+    const res = await fetch('/api/stats');
+    const d = await res.json();
+    document.getElementById('s-total').textContent = d.total_versions;
+    document.getElementById('s-full').textContent  = d.full_backups;
+    document.getElementById('s-inc').textContent   = d.incremental_backups;
+    const kb = (d.total_original_size / 1024).toFixed(1);
+    document.getElementById('s-size').textContent  = kb > 1024 ? (kb/1024).toFixed(1)+'MB' : kb+'KB';
+  }
+
+  async function loadVersions() {
+    const res = await fetch('/api/versions');
+    const versions = await res.json();
+    const el = document.getElementById('versionList');
+    if (!versions.length) {
+      el.innerHTML = '<div class="empty-state">No backups yet.</div>';
+      return;
+    }
+    const recent = versions.slice(-5).reverse();
+    el.innerHTML = recent.map(v => `
+      <div class="version-row">
+        <span class="v-num">v${String(v.version).padStart(3,'0')}</span>
+        <span class="v-name">${v.original_name}</span>
+        <span class="badge ${v.backup_type === 'full' ? 'badge-full' : 'badge-inc'}">${v.backup_type}</span>
+        <span class="v-time">${v.timestamp.replace('_',' ')}</span>
+      </div>
+    `).join('');
+  }
+
+  loadStats();
+  loadVersions();
+</script>
+{% endblock %}

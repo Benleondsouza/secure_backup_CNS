@@ -1,20 +1,156 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Backup</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}New Backup — VAULT{% endblock %}
 
-<h1>📤 Create Backup</h1>
+{% block extra_head %}
+<style>
+  .backup-wrap {
+    max-width: 540px;
+  }
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    margin-bottom: 18px;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.03);
+  }
+  .drop-zone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .drop-zone .dz-text {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .drop-zone .dz-name {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-top: 8px;
+    font-weight: 700;
+  }
+  #fileInput { display: none; }
 
-<div class="card">
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" required><br><br>
-        <input type="password" name="password" placeholder="Enter password" required><br><br>
-        <button type="submit">Backup</button>
-    </form>
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 16px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .result-box {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    display: none;
+  }
+  .result-box.ok   { background: rgba(0,229,160,0.07); border: 1px solid rgba(0,229,160,0.25); color: var(--accent); }
+  .result-box.skip { background: rgba(108,99,255,0.07); border: 1px solid rgba(108,99,255,0.25); color: var(--accent2); }
+  .result-box.err  { background: rgba(255,87,87,0.07); border: 1px solid rgba(255,87,87,0.25); color: var(--warn); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>New Backup</h1>
+  <p>ENCRYPT &amp; VERSION A FILE · AES-256-GCM + ARGON2ID</p>
 </div>
 
-</body>
-</html>
+<div class="backup-wrap card">
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="dz-icon">◈</div>
+    <div class="dz-text">Drop file here or click to browse</div>
+    <div class="dz-name" id="dzName"></div>
+  </div>
+  <input type="file" id="fileInput">
+
+  <div class="form-group">
+    <label>Encryption Password</label>
+    <input type="password" id="password" placeholder="Enter a strong password…">
+  </div>
+
+  <button class="btn btn-primary" id="backupBtn" onclick="doBackup()">⊕ &nbsp;Create Backup</button>
+
+  <div class="progress-bar" id="prog"><div class="progress-fill" id="progFill"></div></div>
+  <div class="result-box" id="result"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    fileInput.files = e.dataTransfer.files;
+    document.getElementById('dzName').textContent = fileInput.files[0]?.name || '';
+  });
+  fileInput.addEventListener('change', () => {
+    document.getElementById('dzName').textContent = fileInput.files[0]?.name || '';
+  });
+
+  async function doBackup() {
+    const file = fileInput.files[0];
+    const password = document.getElementById('password').value;
+    if (!file || !password) { showToast('Please select a file and enter a password.', 'error'); return; }
+
+    const prog = document.getElementById('prog');
+    const fill = document.getElementById('progFill');
+    const res  = document.getElementById('result');
+    res.style.display = 'none';
+    prog.style.display = 'block';
+    fill.style.width = '30%';
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('password', password);
+
+    try {
+      fill.style.width = '70%';
+      const r = await fetch('/api/backup', { method: 'POST', body: fd });
+      fill.style.width = '100%';
+      const d = await r.json();
+
+      setTimeout(() => { prog.style.display = 'none'; fill.style.width = '0'; }, 600);
+
+      res.style.display = 'block';
+      if (d.status === 'created') {
+        res.className = 'result-box ok';
+        res.textContent = `✓ ${d.message}`;
+        showToast(d.message, 'success');
+      } else if (d.status === 'no_change') {
+        res.className = 'result-box skip';
+        res.textContent = `⚡ ${d.message}`;
+        showToast(d.message, 'info');
+      } else {
+        res.className = 'result-box err';
+        res.textContent = `✗ ${d.error}`;
+      }
+    } catch(e) {
+      res.style.display = 'block';
+      res.className = 'result-box err';
+      res.textContent = '✗ Network error.';
+    }
+  }
+</script>
+{% endblock %}

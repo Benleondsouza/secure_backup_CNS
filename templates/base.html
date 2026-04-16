@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}VAULT{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2e;
+      --accent:    #00e5a0;
+      --accent2:   #6c63ff;
+      --warn:      #ff5757;
+      --text:      #e2e2f0;
+      --muted:     #5a5a7a;
+      --mono:      'Space Mono', monospace;
+      --sans:      'Syne', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Sidebar ── */
+    nav {
+      width: 220px;
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 28px 0;
+      position: fixed;
+      top: 0; left: 0;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 4px;
+      padding: 0 24px 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo span { color: var(--muted); font-size: 0.65rem; display: block; letter-spacing: 2px; margin-top: 4px; }
+
+    .nav-links { padding: 24px 0; flex: 1; }
+
+    .nav-links a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text);
+      border-left-color: var(--accent);
+      background: rgba(0,229,160,0.05);
+    }
+    .nav-links a .icon { font-size: 1rem; }
+
+    .nav-bottom {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* ── Main ── */
+    main {
+      margin-left: 220px;
+      flex: 1;
+      padding: 40px 48px;
+      max-width: 1100px;
+    }
+
+    .page-header {
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header h1 {
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .page-header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+      font-family: var(--mono);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .card-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover { background: #00ffb3; transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger {
+      background: rgba(255,87,87,0.1);
+      color: var(--warn);
+      border: 1px solid rgba(255,87,87,0.3);
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      display: none;
+      z-index: 999;
+      max-width: 340px;
+      animation: slideUp 0.3s ease;
+    }
+    #toast.success { border-color: var(--accent); color: var(--accent); }
+    #toast.error   { border-color: var(--warn);   color: var(--warn); }
+    #toast.info    { border-color: var(--accent2); color: var(--accent2); }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Form elements ── */
+    input[type="text"], input[type="password"], input[type="file"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+    label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .form-group { margin-bottom: 18px; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 3px;
+      letter-spacing: 1px;
+    }
+    .badge-full { background: rgba(108,99,255,0.15); color: var(--accent2); border: 1px solid rgba(108,99,255,0.3); }
+    .badge-inc  { background: rgba(0,229,160,0.1);  color: var(--accent);  border: 1px solid rgba(0,229,160,0.2); }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">VAULT<span>SECURE BACKUP</span></div>
+  <div class="nav-links">
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+      <span class="icon">◈</span> Dashboard
+    </a>
+    <a href="/backup" class="{% if request.path == '/backup' %}active{% endif %}">
+      <span class="icon">⊕</span> New Backup
+    </a>
+    <a href="/versions" class="{% if request.path == '/versions' %}active{% endif %}">
+      <span class="icon">≡</span> Versions
+    </a>
+    <a href="/restore" class="{% if request.path == '/restore' %}active{% endif %}">
+      <span class="icon">↺</span> Restore
+    </a>
+  </div>
+  <div class="nav-bottom">AES-256-GCM · ARGON2ID</div>
+</nav>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<div id="toast"></div>
+
+<script>
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = type;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3500);
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

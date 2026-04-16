@@ -1,0 +1,10 @@
+{
+    "version": 10,
+    "timestamp": "20260416_124953",
+    "original_name": "test 1.txt",
+    "size": 41,
+    "hash": "c84525ae9f35be6a87cd62db3635132cdf502875a00a50bff9243f948b664e51",
+    "previous_hash": "3d98d79685b7f4200463d9a8cd5234b9bafdca823ed6761331a89ac1e188b4da",
+    "backup_type": "incremental",
+    "folder": "v010_20260416_124953"
+}

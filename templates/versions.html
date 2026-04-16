@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backup Versions</title>
+</head>
+<body>
+
+<h1>📂 Backup Versions</h1>
+
+<div id="list"></div>
+
+<script>
+async function loadVersions() {
+    const res = await fetch('/api/versions');
+    const data = await res.json();
+
+    const container = document.getElementById("list");
+    container.innerHTML = "";
+
+    data.forEach(v => {
+        const div = document.createElement("div");
+
+        div.innerHTML = `
+            <p><b>Version:</b> ${v.version} (${v.backup_type})</p>
+            <p><b>Time:</b> ${v.timestamp}</p>
+            <input type="password" placeholder="Password" id="pass_${v.folder}">
+            <button onclick="restore('${v.folder}')">Restore</button>
+            <hr>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+async function restore(folder) {
+    const password = document.getElementById("pass_" + folder).value;
+
+    const res = await fetch('/api/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder, password })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+        alert("❌ " + data.error);
+    } else {
+        alert("✅ Restore successful!");
+    }
+}
+
+loadVersions();
+</script>
+
+</body>
+</html>
